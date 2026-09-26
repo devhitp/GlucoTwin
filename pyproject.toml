@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "glucotwin"
+version = "0.1.0"
+description = "GlucoTwin - Digital Twin research prototype for the CRP Digital Twin Challenge 2026."
+authors = [
+    {name = "Developer"}
+]
+dependencies = [
+    "pandas",
+    "numpy",
+    "matplotlib",
+    "pydantic",
+    "python-dotenv"
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest"
+]

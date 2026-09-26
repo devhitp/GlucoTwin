@@ -1,0 +1,34 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Dataset files - DO NOT COMMIT OHIO T1DM DATA
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# Testing and profiling
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Temporary files
+*.swp
+*~
+.DS_Store
+
+# IDEs
+.idea/
+.vscode/
