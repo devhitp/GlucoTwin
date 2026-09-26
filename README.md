@@ -40,5 +40,12 @@ Sprint 3 introduces a leakage-safe modeling pipeline focusing on predicting the 
 - **Interpretability**: Generates calibration, threshold analyses, feature importances, and context-aware error breakdowns.
 - **Disclaimer**: Models are verified purely against a synthetic modeling fixture. DO NOT interpret as clinically validated or real OhioT1DM performance.
 
+## Sprint 4 — Real OhioT1DM Integration & Validation
+Sprint 4 focuses on dataset integration infrastructure and privacy safeguards.
+- **Status**: **REAL OHIO T1DM DATASET NOT AVAILABLE — REAL-DATA VALIDATION PENDING**
+- **Infrastructure**: Validated parsing, schema, synchronization, and audit components.
+- **Privacy Precautions**: `.gitignore` strictly prohibits committing `data/raw/` and generated artifacts. Audit scripts are restricted to aggregate statistics only.
+- **Verification**: If real data is added locally, the pipeline can be safely triggered via `scripts/run_real_pipeline.py`.
+
 ## Data Safety
 Raw and processed research data are excluded from Git to prevent the accidental exposure of sensitive information. Ensure that any downloaded patient data remains exclusively in `data/raw/`.
