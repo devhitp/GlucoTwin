@@ -26,5 +26,12 @@ The raw dataset contains sensitive research data and must NEVER be committed to 
 ## Sprint 1
 Sprint 1 establishes a clean, reliable foundation for dataset loading, parsing, schema definition, validation, and synchronization. It sets up the core data pipeline before any machine learning or digital twin modeling is implemented.
 
+## Sprint 2 — Data Preprocessing & Feature Engineering
+Sprint 2 transforms canonical records into a leakage-safe model-ready dataset. 
+- **Causal Features**: Ensures backward-looking boundaries to avoid future data leakage. 
+- **Research Labels**: Tracks 30m and 60m future hypoglycemia (<70mg/dL) and severe hypoglycemia (<54mg/dL) events.
+- **Pipelines**: Integrates CGM, insulin, meals, wearables, context, and patient baselines into a chronologically aligned data structure.
+- **Testing Constraints**: Synthetic data handles validations while preserving the requirement for accurate physiological simulations once the real OhioT1DM dataset is linked.
+
 ## Data Safety
 Raw and processed research data are excluded from Git to prevent the accidental exposure of sensitive information. Ensure that any downloaded patient data remains exclusively in `data/raw/`.
