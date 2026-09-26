@@ -1,0 +1,14 @@
+{
+    "target": "future_hypoglycemia_30m",
+    "features": [
+        "glucose_current",
+        "glucose_roc_5m",
+        "insulin_bolus_last_30m",
+        "carbs_last_30m",
+        "is_night_clock_based"
+    ],
+    "train_samples": 1200,
+    "val_samples": 400,
+    "test_samples": 400,
+    "positive_rate": 0.1605
+}

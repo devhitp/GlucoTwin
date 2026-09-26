@@ -33,5 +33,12 @@ Sprint 2 transforms canonical records into a leakage-safe model-ready dataset.
 - **Pipelines**: Integrates CGM, insulin, meals, wearables, context, and patient baselines into a chronologically aligned data structure.
 - **Testing Constraints**: Synthetic data handles validations while preserving the requirement for accurate physiological simulations once the real OhioT1DM dataset is linked.
 
+## Sprint 3 — Hypoglycemia Prediction Baseline
+Sprint 3 introduces a leakage-safe modeling pipeline focusing on predicting the `future_hypoglycemia_30m` label.
+- **Baselines**: Implements a deterministic persistence rule and a tabular LightGBM model.
+- **Evaluation Strategy**: Chronological Train/Validation/Test splits preventing data overlap.
+- **Interpretability**: Generates calibration, threshold analyses, feature importances, and context-aware error breakdowns.
+- **Disclaimer**: Models are verified purely against a synthetic modeling fixture. DO NOT interpret as clinically validated or real OhioT1DM performance.
+
 ## Data Safety
 Raw and processed research data are excluded from Git to prevent the accidental exposure of sensitive information. Ensure that any downloaded patient data remains exclusively in `data/raw/`.

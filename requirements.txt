@@ -4,3 +4,5 @@ matplotlib
 pytest
 pydantic
 python-dotenv
+scikit-learn
+lightgbm

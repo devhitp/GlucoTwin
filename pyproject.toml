@@ -14,7 +14,9 @@ dependencies = [
     "numpy",
     "matplotlib",
     "pydantic",
-    "python-dotenv"
+    "python-dotenv",
+    "scikit-learn",
+    "lightgbm"
 ]
 
 [project.optional-dependencies]
