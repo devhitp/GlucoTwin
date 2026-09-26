@@ -47,5 +47,12 @@ Sprint 4 focuses on dataset integration infrastructure and privacy safeguards.
 - **Privacy Precautions**: `.gitignore` strictly prohibits committing `data/raw/` and generated artifacts. Audit scripts are restricted to aggregate statistics only.
 - **Verification**: If real data is added locally, the pipeline can be safely triggered via `scripts/run_real_pipeline.py`.
 
+## Sprint 5 — First Real OhioT1DM Run
+Sprint 5 establishes the readiness criteria for local real-data evaluation and strict privacy protections for research handling.
+- **Status**: **BLOCKED: REAL OHIO T1DM DATASET REQUIRES USER-SIDE AUTHORIZED ACCESS/DOWNLOAD**.
+- **Acquisition**: A documented protocol (`docs/ohiot1dm_acquisition.md`) mandates downloading the dataset exclusively through authorized PhysioNet channels.
+- **Pipeline Constraints**: The repository explicitly blocks fabricated records and refuses to bypass required authentication. 
+- **Next Steps**: Once the user acquires the legitimate dataset and places it in `data/raw/`, `scripts/run_real_pipeline.py` will execute the actual preprocessing, labels, temporal splits, and LightGBM model automatically.
+
 ## Data Safety
 Raw and processed research data are excluded from Git to prevent the accidental exposure of sensitive information. Ensure that any downloaded patient data remains exclusively in `data/raw/`.
