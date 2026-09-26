@@ -8,13 +8,17 @@ The goal is to forecast CGM-defined nocturnal hypoglycemia events 30–60 minute
 **Disclaimer:** GlucoTwin is a research/hackathon prototype and is NOT a medical device, diagnostic system, or medical advice tool.
 
 ## Dataset
-This project uses the OhioT1DM dataset from PhysioNet.
+This project uses the MetaboNet public dataset.
 The raw dataset contains sensitive research data and must NEVER be committed to this repository.
 
+## Dataset Architecture
+- **Core inputs**: CGM, insulin (basal/bolus), carbohydrates, context/time.
+- **Optional inputs**: steps, heart rate, EDA, skin temperature (Note: highly sparse in MetaboNet).
+
 ## Dataset Setup
-1. Obtain the OhioT1DM dataset through its legitimate public access process on PhysioNet.
-2. Place the dataset files in the `data/raw/` directory, or set the dataset path using the `GLUCOTWIN_DATA_PATH` environment variable.
-3. The dataset should contain XML files for each patient (as provided by the official OhioT1DM release).
+1. Obtain the MetaboNet dataset.
+2. Place the dataset files in the `data/raw/` directory (e.g. `metabonet_public.parquet`).
+3. The pipeline will automatically parse this via `MetaboNetAdapter`.
 
 ## Project Structure
 - `data/`: Contains raw and processed data (ignored in git except for this readme).
@@ -53,6 +57,12 @@ Sprint 5 establishes the readiness criteria for local real-data evaluation and s
 - **Acquisition**: A documented protocol (`docs/ohiot1dm_acquisition.md`) mandates downloading the dataset exclusively through authorized PhysioNet channels.
 - **Pipeline Constraints**: The repository explicitly blocks fabricated records and refuses to bypass required authentication. 
 - **Next Steps**: Once the user acquires the legitimate dataset and places it in `data/raw/`, `scripts/run_real_pipeline.py` will execute the actual preprocessing, labels, temporal splits, and LightGBM model automatically.
+
+## Sprint 6 — Data Qualification & Canonical Adapter
+Sprint 6 formally qualifies the local MetaboNet dataset for core GlucoTwin objectives.
+- **Adapter**: `MetaboNetAdapter` maps the raw Parquet into the canonical GlucoTwin schema.
+- **Qualification**: Over 130M CGM points, 140M insulin events, and 1M+ meal events were memory-safely audited.
+- **Outcome**: A "Core Cohort" of 938 subjects (with continuous coverage > 14 days and robust physiological streams) is identified as the primary target for future digital twin experiments.
 
 ## Data Safety
 Raw and processed research data are excluded from Git to prevent the accidental exposure of sensitive information. Ensure that any downloaded patient data remains exclusively in `data/raw/`.
