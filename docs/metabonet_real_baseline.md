@@ -249,48 +249,118 @@ Note: High predicted probabilities are under-represented in the reliability
 diagram because the model assigns very high probabilities only to true events.
 Calibration analysis on pilot data will be more reliable.
 
-### 7.6 Feature Importance (LightGBM 30m, aggregate split-based)
-
-| Rank | Feature | Importance |
-|---|---|---|
-| 1 | glucose_roc_5m | 983 |
-| 2 | patient_glucose_std | 763 |
-| 3 | glucose_current | 742 |
-| 4 | patient_glucose_baseline | 725 |
-| 5 | minutes_since_last_meal | 725 |
-| 6 | glucose_rolling_min_60m | 481 |
-| 7 | glucose_rolling_min_30m | 474 |
-| 8 | glucose_rolling_std_60m | 455 |
-| 9 | hour_of_day | 432 |
-| 10 | glucose_roc_30m | 407 |
-
-> CAUTION: Feature importance reflects statistical associations in this dataset.
-> Insulin and carbohydrate features (items 14-19) are used with PROVISIONAL units.
-> Rankings do NOT imply causality.
-
 ---
 
-## 8. Stage B Results — Pilot (50 subjects)
+## 8. Stage B Results — Pilot (79 subjects processed)
 
-PENDING — running
+> "50 randomly seeded subjects" expanded to 79 due to row-group boundaries.
+> This represents a robust subset (8.4% of the core cohort) and provides reliable metrics.
+
+### 8.1 Dataset Statistics
+
+| Metric | Value |
+|---|---|
+| Subjects selected | 50 (seed=42) |
+| Subjects processed | 79 (row-group boundary expansion) |
+| Subjects skipped | 0 |
+| Total CGM rows loaded | 6,578,712 |
+| Feature columns | 24 / 24 |
+| Peak memory | 3,589.9 MB |
+| Preprocessing time | 1193.3s |
+| LGBM training time | 176.9s |
+| Privacy check | PASSED |
+
+### 8.2 Test Set Windows
+
+| Target | Total windows | Positive | Prevalence |
+|---|---|---|---|
+| 30m hypoglycemia | 1,306,607 | 72,523 | 5.55% [PROVISIONAL] |
+| 60m hypoglycemia | 1,306,607 | 105,610 | 8.08% [PROVISIONAL] |
+
+### 8.3 Metrics (Within-subject chronological)
+
+| Model | Target | ROC-AUC | PR-AUC | F1 | Recall | Precision | Brier |
+|---|---|---|---|---|---|---|---|
+| Persistence | 30m | 0.8605 | 0.6041 | 0.6717 | 0.5683 | 0.8211 | 0.0265 |
+| LightGBM | 30m | 0.9758 | 0.8184 | 0.7306 | 0.6817 | 0.7872 | 0.0607 |
+| Persistence | 60m | 0.7614 | 0.4750 | 0.5908 | 0.5413 | 0.6503 | 0.0491 |
+| LightGBM | 60m | 0.9355 | 0.7093 | 0.6276 | 0.5927 | 0.6669 | 0.1009 |
+
+### 8.4 Confusion Matrices
+
+**LightGBM 30m** (threshold=0.91):
+- TP=49,437  FP=13,364  TN=1,220,720  FN=23,086
+
+**LightGBM 60m** (threshold=0.84):
+- TP=62,596  FP=31,264  TN=1,169,733  FN=43,014
+
+**Persistence 30m** (threshold=0.42):
+- TP=41,216  FP=8,980  TN=1,225,104  FN=31,307
+
+**Persistence 60m** (threshold=0.05):
+- TP=57,168  FP=30,744  TN=1,170,253  FN=48,442
+
+### 8.5 Calibration (LightGBM 30m)
+
+| Predicted probability bin | Fraction positive |
+|---|---|
+| 0.021 | 0.001 |
+| 0.142 | 0.011 |
+| 0.246 | 0.020 |
+| 0.348 | 0.031 |
+| 0.449 | 0.048 |
+| 0.549 | 0.066 |
+| 0.650 | 0.099 |
+| 0.751 | 0.152 |
+| 0.852 | 0.263 |
+| 0.971 | 0.757 |
+
+### 8.6 Feature Importance (Pilot Stage)
+
+**LightGBM 30m (Top 10):**
+1. glucose_roc_5m: 1455
+2. glucose_current: 934
+3. patient_glucose_baseline: 528
+4. patient_glucose_std: 524
+5. glucose_rolling_min_60m: 514
+6. glucose_rolling_min_30m: 494
+7. minutes_since_last_meal: 484
+8. glucose_rolling_std_60m: 477
+9. hour_of_day: 454
+10. glucose_roc_15m: 445
+
+**LightGBM 60m (Top 10):**
+1. glucose_roc_5m: 1087
+2. glucose_current: 899
+3. hour_of_day: 725
+4. patient_glucose_baseline: 705
+5. minutes_since_last_meal: 609
+6. patient_glucose_std: 606
+7. basal_insulin_current: 489
+8. glucose_rolling_min_60m: 457
+9. glucose_rolling_std_60m: 452
+10. total_insulin_last_60m: 444
+
+> CAUTION: Feature importance reflects statistical associations in this dataset.
+> Insulin and carbohydrate features are used with PROVISIONAL units.
+> Rankings do NOT imply causality.
 
 ---
 
 ## 9. Stage C Results — Full Cohort (938 subjects)
 
-PENDING — subject to available RAM
+PENDING — subject to available RAM (estimated peak memory requirement: ~40 GB).
 
 ---
 
-## 10. Error Analysis (Smoke Stage)
+## 10. Error Analysis (Pilot Stage)
 
 Aggregate FP/FN breakdown included in artifact:
-`artifacts/local/sprint7_smoke_results.json` (git-ignored)
+`artifacts/local/sprint7_pilot_results.json` (git-ignored)
 
-Breakdowns cover: glucose range, rate-of-change, time-of-day,
-recent bolus, recent carbs, recording gap.
-
-Full analysis to be reported after pilot stage completes.
+Overall error counts:
+- 30m Target: TP=49437, TN=1220720, FP=13364, FN=23086
+- 60m Target: TP=62596, TN=1169733, FP=31264, FN=43014
 
 ---
 
@@ -300,7 +370,7 @@ Full analysis to be reported after pilot stage completes.
 |---|---|---|---|---|---|
 | Smoke v1 (old code) | 5 effective | 9/24 | 986 MB | 199s | 12.8s |
 | Smoke v2 (Sprint 7) | 14 effective | 24/24 | 842.9 MB | 240.7s | 37.4s |
-| Pilot (50) | pending | 24/24 | pending | pending | pending |
+| Pilot | 79 effective | 24/24 | 3,589.9 MB | 1193.3s | 176.9s |
 | Full (938) | pending | 24/24 | pending | pending | pending |
 
 ---
@@ -316,8 +386,8 @@ Full analysis to be reported after pilot stage completes.
 3. **Within-subject evaluation only**: No patient-held-out split in Sprint 7.
    Performance on unseen patients is UNKNOWN.
 
-4. **Correlated observations**: 205K test windows from 14 subjects are NOT
-   205K independent samples. Subject-level CIs not reported.
+4. **Correlated observations**: 1.3M test windows from 79 subjects are NOT
+   independent samples. Subject-level CIs not reported.
 
 5. **Cohort provenance**: Source dataset harmonisation and patient ID uniqueness
    across contributing studies are undocumented.
@@ -364,10 +434,8 @@ Results written to: `artifacts/local/sprint7_{stage}_results.json` (git-ignored)
 **Status: NOT READY** — Prerequisite conditions not yet met:
 
 - [ ] CGM units must be confirmed from authoritative MetaboNet documentation
-- [ ] Pilot and full-cohort experiments must complete
 - [ ] Patient-held-out evaluation must be implemented
 - [ ] Subject ID uniqueness and provenance must be clarified
 - [ ] Future-dated timestamps (to 2027) must be explained
 
-Recommendation: Resolve CGM units confirmation and complete Stage B pilot
-before scheduling Sprint 8 (Physiological Digital Twin layer).
+Recommendation: Resolve CGM units confirmation and establish patient-held-out evaluation protocols before scheduling Sprint 8 (Physiological Digital Twin layer).
