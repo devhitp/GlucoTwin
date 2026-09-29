@@ -82,7 +82,9 @@ def _assert_privacy(artifacts_dir: str) -> None:
 def run_stage(stage: str, split_strategy: str = "held-out", max_subjects: int = None):
     print(f"\n{'=' * 60}")
     print(f"GlucoTwin Sprint 7.5 — Stage: {stage.upper()}")
-    print(f"PROVISIONAL: CGM threshold at 70 mg/dL NOT confirmed from docs")
+    from src.glucotwin.config.clinical import get_hypo_threshold, get_glucose_unit
+    hypo_th = get_hypo_threshold()
+    print(f"PROVISIONAL: CGM threshold at {hypo_th} {get_glucose_unit()} NOT confirmed from docs")
     print(f"{'=' * 60}\n")
 
     assert os.path.exists(PARQUET_PATH), \
@@ -229,13 +231,13 @@ def run_stage(stage: str, split_strategy: str = "held-out", max_subjects: int = 
     results = {
         "stage": stage,
         "split_strategy": split_strategy,
-        "PROVISIONAL_NOTE": "CGM threshold 70 mg/dL assumed mg/dL — units NOT confirmed",
+        "PROVISIONAL_NOTE": f"CGM threshold {hypo_th} assumed {get_glucose_unit()} — units NOT confirmed",
         "label_30m_definition": (
-            "Binary: 1 if any glucose < 70 mg/dL (PROVISIONAL) in next 30 min; "
+            f"Binary: 1 if any glucose < {hypo_th} (PROVISIONAL) in next 30 min; "
             "NaN if no future glucose; excludes inter-split boundary rows"
         ),
         "label_60m_definition": (
-            "Binary: 1 if any glucose < 70 mg/dL (PROVISIONAL) in next 60 min; "
+            f"Binary: 1 if any glucose < {hypo_th} (PROVISIONAL) in next 60 min; "
             "NaN if no future glucose; excludes inter-split boundary rows"
         ),
         "split_protocol": (
@@ -264,7 +266,7 @@ def run_stage(stage: str, split_strategy: str = "held-out", max_subjects: int = 
 
     # ---- PERSISTENCE BASELINE -----------------------------------------------
     print("\nEvaluating persistence baseline...")
-    persistence = PersistenceBaseline(threshold=70.0)
+    persistence = PersistenceBaseline(threshold=hypo_th)
 
     prob_val30 = persistence.predict_proba(X_val30)
     thr_p30 = select_threshold_on_val(y_val30.values, prob_val30)

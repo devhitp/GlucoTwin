@@ -23,7 +23,8 @@ def test_feature_sanitization(synthetic_df):
     assert len(X) == len(y)
 
 def test_persistence_baseline(synthetic_df):
-    baseline = PersistenceBaseline(threshold=70.0)
+    from src.glucotwin.config.clinical import get_hypo_threshold
+    baseline = PersistenceBaseline(threshold=get_hypo_threshold())
     probs = baseline.predict_proba(synthetic_df)
     
     assert len(probs) == len(synthetic_df)
@@ -77,7 +78,8 @@ def test_modeling_leakage_regression(synthetic_df):
     df2.loc[future_time, 'glucose_current'] = 30.0 
     
     # Recompute labels for df2 as the pipeline would
-    df2['future_hypoglycemia_30m'] = (df2['glucose_current'].shift(-6).rolling(6, min_periods=1).min() < 70).astype(float)
+    from src.glucotwin.config.clinical import get_hypo_threshold
+    df2['future_hypoglycemia_30m'] = (df2['glucose_current'].shift(-6).rolling(6, min_periods=1).min() < get_hypo_threshold()).astype(float)
     
     X1, y1 = FeatureSanitizer.sanitize(df1, 'future_hypoglycemia_30m')
     X2, y2 = FeatureSanitizer.sanitize(df2, 'future_hypoglycemia_30m')

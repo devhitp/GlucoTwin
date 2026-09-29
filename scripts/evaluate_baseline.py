@@ -37,7 +37,8 @@ def main():
     model.fit(X_train, y_train, X_val, y_val)
     
     # Persistence Baseline
-    baseline = PersistenceBaseline(threshold=70.0)
+    from src.glucotwin.config.clinical import get_hypo_threshold
+    baseline = PersistenceBaseline(threshold=get_hypo_threshold())
     baseline_probs = baseline.predict_proba(X_test)
     base_metrics = Evaluation.calculate_metrics(y_test, baseline_probs, threshold=0.5)
     

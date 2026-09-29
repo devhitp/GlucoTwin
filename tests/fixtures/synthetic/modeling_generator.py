@@ -11,7 +11,9 @@ def generate_synthetic_modeling_fixture(rows: int = 1000) -> pd.DataFrame:
     start_time = datetime(2026, 1, 1, 0, 0, 0)
     timestamps = [start_time + timedelta(minutes=5*i) for i in range(rows)]
     
-    # Generate some synthetic glucose that oscillates and sometimes drops below 70
+    from src.glucotwin.config.clinical import get_hypo_threshold
+    hypo_th = get_hypo_threshold()
+    # Generate some synthetic glucose that oscillates and sometimes drops below hypo_th
     time_seq = np.linspace(0, 10 * np.pi, rows)
     base_glucose = 120 + 50 * np.sin(time_seq)
     noise = np.random.normal(0, 5, rows)
@@ -27,8 +29,8 @@ def generate_synthetic_modeling_fixture(rows: int = 1000) -> pd.DataFrame:
     })
     
     # Create the future labels to mimic preprocessing
-    df['future_hypoglycemia_30m'] = (df['glucose_current'].shift(-6).rolling(6, min_periods=1).min() < 70).astype(float)
-    df['future_hypoglycemia_60m'] = (df['glucose_current'].shift(-12).rolling(12, min_periods=1).min() < 70).astype(float)
+    df['future_hypoglycemia_30m'] = (df['glucose_current'].shift(-6).rolling(6, min_periods=1).min() < hypo_th).astype(float)
+    df['future_hypoglycemia_60m'] = (df['glucose_current'].shift(-12).rolling(12, min_periods=1).min() < hypo_th).astype(float)
     
     # Drop NaNs at the end
     df = df.dropna()

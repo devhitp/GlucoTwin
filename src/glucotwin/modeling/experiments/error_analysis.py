@@ -11,8 +11,10 @@ from typing import Dict, Any, Optional
 
 
 # CGM bins used for error breakdown (in mg/dL — PROVISIONAL units)
-GLUCOSE_BINS = [0, 54, 70, 90, 120, 180, 250, 600]
-GLUCOSE_BIN_LABELS = ["<54", "54-70", "70-90", "90-120", "120-180", "180-250", ">250"]
+from src.glucotwin.config.clinical import get_hypo_threshold
+
+GLUCOSE_BINS = [0, 54, get_hypo_threshold(), 90, 120, 180, 250, 600]
+GLUCOSE_BIN_LABELS = ["<54", f"54-{int(get_hypo_threshold())}", f"{int(get_hypo_threshold())}-90", "90-120", "120-180", "180-250", ">250"]
 
 # Rate-of-change bins (mg/dL per minute)
 ROC_BINS = [-np.inf, -2.0, -1.0, -0.5, 0.5, 1.0, 2.0, np.inf]

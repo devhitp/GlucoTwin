@@ -2,8 +2,9 @@ import pandas as pd
 import numpy as np
 
 class PersistenceBaseline:
-    def __init__(self, threshold: float = 70.0):
-        self.threshold = threshold
+    def __init__(self, threshold: float = None):
+        from src.glucotwin.config.clinical import get_hypo_threshold
+        self.threshold = threshold if threshold is not None else get_hypo_threshold()
         
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         """

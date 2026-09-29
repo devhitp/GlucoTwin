@@ -4,8 +4,8 @@
 This document describes the modeling architecture and baseline implementation for Sprint 3 of the GlucoTwin digital twin prototype. The primary goal is to predict future hypoglycemia events within 30-minute and 60-minute horizons using canonical physiological data.
 
 ## Target Definitions
-- `future_hypoglycemia_30m`: 1 if glucose drops < 70 mg/dL within the next 30 minutes, 0 otherwise.
-- `future_hypoglycemia_60m`: 1 if glucose drops < 70 mg/dL within the next 60 minutes, 0 otherwise.
+- `future_hypoglycemia_30m`: 1 if glucose drops < 70 (PROVISIONAL) within the next 30 minutes, 0 otherwise.
+- `future_hypoglycemia_60m`: 1 if glucose drops < 70 (PROVISIONAL) within the next 60 minutes, 0 otherwise.
 
 ## Input Features
 The pipeline extracts model-safe features excluding identifiers and target variants:

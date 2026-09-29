@@ -33,7 +33,7 @@ Sprint 1 establishes a clean, reliable foundation for dataset loading, parsing, 
 ## Sprint 2 — Data Preprocessing & Feature Engineering
 Sprint 2 transforms canonical records into a leakage-safe model-ready dataset. 
 - **Causal Features**: Ensures backward-looking boundaries to avoid future data leakage. 
-- **Research Labels**: Tracks 30m and 60m future hypoglycemia (<70mg/dL) and severe hypoglycemia (<54mg/dL) events.
+- **Research Labels**: Tracks 30m and 60m future hypoglycemia (<70) and severe hypoglycemia (<54) events (PROVISIONAL threshold).
 - **Pipelines**: Integrates CGM, insulin, meals, wearables, context, and patient baselines into a chronologically aligned data structure.
 - **Testing Constraints**: Synthetic data handles validations while preserving the requirement for accurate physiological simulations once the real OhioT1DM dataset is linked.
 

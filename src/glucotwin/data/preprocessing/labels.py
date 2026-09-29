@@ -30,7 +30,10 @@ class Labels:
         # 60 minutes forward
         min_60m_fwd = df_rev['glucose'].rolling('60min', min_periods=1).min().sort_index()
         
-        # Hypoglycemia: < 70
+        from src.glucotwin.config.clinical import get_hypo_threshold
+        hypo_th = get_hypo_threshold()
+
+        # Hypoglycemia: < hypo_th
         # Severe Hypoglycemia: < 54
         
         # 30m labels (does it cross threshold in the next 30m?)
@@ -40,10 +43,10 @@ class Labels:
         future_glucose_30m = df_rev['glucose'].shift(1).rolling('30min', min_periods=1).min().sort_index()
         future_glucose_60m = df_rev['glucose'].shift(1).rolling('60min', min_periods=1).min().sort_index()
         
-        labels['future_hypoglycemia_30m'] = (future_glucose_30m < 70).astype(float)
+        labels['future_hypoglycemia_30m'] = (future_glucose_30m < hypo_th).astype(float)
         labels['future_severe_hypoglycemia_30m'] = (future_glucose_30m < 54).astype(float)
         
-        labels['future_hypoglycemia_60m'] = (future_glucose_60m < 70).astype(float)
+        labels['future_hypoglycemia_60m'] = (future_glucose_60m < hypo_th).astype(float)
         labels['future_severe_hypoglycemia_60m'] = (future_glucose_60m < 54).astype(float)
         
         # Nocturnal label

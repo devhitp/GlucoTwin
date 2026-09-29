@@ -25,8 +25,8 @@ flowchart TD
 
 ## Research Event Labels
 - Target Horizons: 30 minutes, 60 minutes.
-- Defined as: `future_hypoglycemia_30m = 1` if glucose crosses < 70 mg/dL in `(T, T + 30m]`.
-- Severe Hypoglycemia: < 54 mg/dL.
+- Defined as: `future_hypoglycemia_30m = 1` if glucose crosses < 70 (PROVISIONAL) in `(T, T + 30m]`.
+- Severe Hypoglycemia: < 54 (PROVISIONAL).
 - Nocturnal Hypoglycemia: Combines a clock-based (or explicit) night indicator with the future crossing labels.
 
 ## Data Splits
