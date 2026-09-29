@@ -429,13 +429,27 @@ Results written to: `artifacts/local/sprint7_{stage}_results.json` (git-ignored)
 
 ---
 
-## 14. Sprint 8 Readiness
+## 14. Sprint 7.5 — Patient-Held-Out Validation
+
+To address the limitations of within-subject chronological evaluation, a true patient-held-out protocol was implemented in Sprint 7.5.
+
+### Protocol
+- **Subject Split**: Deterministic assignment by `patient_id` (seed=42).
+- **Proportions**: 60% Train, 20% Validation, 20% Test subjects.
+- **Leakage Prevention**: Entire subjects are grouped together. No windows from a test subject appear in the training set. Causal personalized features (e.g., `patient_glucose_baseline`) are computed solely from the patient's own historical stream up to the prediction time `T`, preserving validity on unseen patients.
+
+*(Note: Detailed performance metrics for the patient-held-out protocol are logged in `artifacts/local/sprint75_pilot_results.json` upon execution).*
+
+### Comparison with Sprint 7
+- **Sprint 7 (Chronological)**: Evaluated how well models predict future events for patients they have already seen in the past.
+- **Sprint 7.5 (Held-out)**: Evaluates generalization to entirely new, unseen patients.
+
+## 15. Sprint 8 Readiness
 
 **Status: NOT READY** — Prerequisite conditions not yet met:
 
-- [ ] CGM units must be confirmed from authoritative MetaboNet documentation
-- [ ] Patient-held-out evaluation must be implemented
-- [ ] Subject ID uniqueness and provenance must be clarified
-- [ ] Future-dated timestamps (to 2027) must be explained
+- [ ] CGM units must be confirmed from authoritative MetaboNet documentation (Currently UNKNOWN).
+- [ ] Subject ID uniqueness and provenance must be clarified.
+- [ ] Future-dated timestamps (to 2027) must be explained (Currently UNKNOWN).
 
-Recommendation: Resolve CGM units confirmation and establish patient-held-out evaluation protocols before scheduling Sprint 8 (Physiological Digital Twin layer).
+Recommendation: Engineering pipeline ready. Clinical threshold interpretation is NOT ready. Resolve dataset provenance and CGM unit confirmation before starting Sprint 8 (Physiological Digital Twin layer).

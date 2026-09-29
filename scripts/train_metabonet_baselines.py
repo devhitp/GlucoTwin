@@ -79,9 +79,9 @@ def _assert_privacy(artifacts_dir: str) -> None:
             _check(data)
 
 
-def run_stage(stage: str, max_subjects: int = None):
+def run_stage(stage: str, split_strategy: str = "held-out", max_subjects: int = None):
     print(f"\n{'=' * 60}")
-    print(f"GlucoTwin Sprint 7 — Stage: {stage.upper()}")
+    print(f"GlucoTwin Sprint 7.5 — Stage: {stage.upper()}")
     print(f"PROVISIONAL: CGM threshold at 70 mg/dL NOT confirmed from docs")
     print(f"{'=' * 60}\n")
 
@@ -122,7 +122,7 @@ def run_stage(stage: str, max_subjects: int = None):
 
     # Save cohort manifest (aggregate stats only, no raw patient data)
     os.makedirs(ARTIFACTS_DIR, exist_ok=True)
-    manifest_path = os.path.join(ARTIFACTS_DIR, f"sprint7_{stage}_cohort_manifest.json")
+    manifest_path = os.path.join(ARTIFACTS_DIR, f"sprint75_{stage}_cohort_manifest.json")
     save_manifest(manifest, manifest_path)
     print(f"  Cohort manifest:     {manifest_path}")
 
@@ -137,22 +137,49 @@ def run_stage(stage: str, max_subjects: int = None):
     subjects_skipped = 0
     total_cgm_rows = 0
 
+    if split_strategy == "held-out":
+        from src.glucotwin.modeling.experiments.subject_split import get_subject_split
+        from src.glucotwin.modeling.experiments.feature_matrix import build_subject_matrices_heldout
+        train_subs, val_subs, test_subs = get_subject_split(selected, seed=42)
+        print(f"  Split strategy: held-out (Train: {len(train_subs)}, Val: {len(val_subs)}, Test: {len(test_subs)})")
+    else:
+        print("  Split strategy: chronological (within-subject)")
+
     for subj_id, records in iter_subjects_from_parquet(PARQUET_PATH, subject_ids=selected):
         total_cgm_rows += len(records)
-        result = build_subject_matrices(records)
-        if result is None:
-            subjects_skipped += 1
-            continue
+        
+        if split_strategy == "held-out":
+            result = build_subject_matrices_heldout(records, subj_id)
+            if result is None:
+                subjects_skipped += 1
+                continue
+            df_30, df_60 = result
+            
+            if subj_id in train_subs:
+                trains_30.append(df_30)
+                trains_60.append(df_60)
+            elif subj_id in val_subs:
+                vals_30.append(df_30)
+                vals_60.append(df_60)
+            else:
+                tests_30.append(df_30)
+                tests_60.append(df_60)
+                
+        else:
+            result = build_subject_matrices(records)
+            if result is None:
+                subjects_skipped += 1
+                continue
 
-        train, val, test = result
+            train, val, test = result
 
-        trains_30.append(train)
-        vals_30.append(val)
-        tests_30.append(test)
+            trains_30.append(train)
+            vals_30.append(val)
+            tests_30.append(test)
 
-        trains_60.append(train)
-        vals_60.append(val)
-        tests_60.append(test)
+            trains_60.append(train)
+            vals_60.append(val)
+            tests_60.append(test)
 
         subjects_processed += 1
         if subjects_processed % 10 == 0:
@@ -177,9 +204,9 @@ def run_stage(stage: str, max_subjects: int = None):
 
     # ---- FEATURE MATRICES ---------------------------------------------------
     print("\nAggregating feature matrices...")
-    X_tr30, y_tr30, X_val30, y_val30, X_te30, y_te30 = aggregate_splits(
+    X_tr30, y_tr30, p_tr30, X_val30, y_val30, p_val30, X_te30, y_te30, p_te30 = aggregate_splits(
         trains_30, vals_30, tests_30, LABEL_30M)
-    X_tr60, y_tr60, X_val60, y_val60, X_te60, y_te60 = aggregate_splits(
+    X_tr60, y_tr60, p_tr60, X_val60, y_val60, p_val60, X_te60, y_te60, p_te60 = aggregate_splits(
         trains_60, vals_60, tests_60, LABEL_60M)
 
     n_features_used = X_tr30.shape[1]
@@ -201,6 +228,7 @@ def run_stage(stage: str, max_subjects: int = None):
 
     results = {
         "stage": stage,
+        "split_strategy": split_strategy,
         "PROVISIONAL_NOTE": "CGM threshold 70 mg/dL assumed mg/dL — units NOT confirmed",
         "label_30m_definition": (
             "Binary: 1 if any glucose < 70 mg/dL (PROVISIONAL) in next 30 min; "
@@ -211,8 +239,7 @@ def run_stage(stage: str, max_subjects: int = None):
             "NaN if no future glucose; excludes inter-split boundary rows"
         ),
         "split_protocol": (
-            "Within-subject chronological: 60% train / 20% val / 20% test; "
-            "60-minute embargo gap at each boundary; aggregated across subjects"
+            "Within-subject chronological" if split_strategy == "chronological" else "Patient-held-out"
         ),
         "subjects_selected": len(selected),
         "subjects_processed": subjects_processed,
@@ -224,15 +251,15 @@ def run_stage(stage: str, max_subjects: int = None):
         "train_30m_windows": int(len(X_tr30)),
         "val_30m_windows": int(len(X_val30)),
         "test_30m_windows": int(len(X_te30)),
-        "train_30m_prevalence": float(y_tr30.mean()),
-        "val_30m_prevalence": float(y_val30.mean()),
-        "test_30m_prevalence": float(y_te30.mean()),
+        "train_30m_prevalence": float(y_tr30.mean()) if not y_tr30.empty else 0.0,
+        "val_30m_prevalence": float(y_val30.mean()) if not y_val30.empty else 0.0,
+        "test_30m_prevalence": float(y_te30.mean()) if not y_te30.empty else 0.0,
         "train_60m_windows": int(len(X_tr60)),
         "val_60m_windows": int(len(X_val60)),
         "test_60m_windows": int(len(X_te60)),
-        "train_60m_prevalence": float(y_tr60.mean()),
-        "val_60m_prevalence": float(y_val60.mean()),
-        "test_60m_prevalence": float(y_te60.mean()),
+        "train_60m_prevalence": float(y_tr60.mean()) if not y_tr60.empty else 0.0,
+        "val_60m_prevalence": float(y_val60.mean()) if not y_val60.empty else 0.0,
+        "test_60m_prevalence": float(y_te60.mean()) if not y_te60.empty else 0.0,
     }
 
     # ---- PERSISTENCE BASELINE -----------------------------------------------
@@ -249,6 +276,8 @@ def run_stage(stage: str, max_subjects: int = None):
     prob_te60 = persistence.predict_proba(X_te60)
     pred_p60 = (prob_te60 >= thr_p60).astype(int)
 
+    from src.glucotwin.modeling.experiments.patient_metrics import calculate_per_patient_metrics
+
     results["persistence_30m"] = compute_metrics(
         y_te30.values, prob_te30, thr_p30, "persistence_30m")
     results["persistence_60m"] = compute_metrics(
@@ -257,6 +286,12 @@ def run_stage(stage: str, max_subjects: int = None):
         X_te30, y_te30.values, pred_p30, "persistence_30m")
     results["error_analysis_persistence_60m"] = error_analysis(
         X_te60, y_te60.values, pred_p60, "persistence_60m")
+
+    if split_strategy == "held-out":
+        results["per_patient_persistence_30m"] = calculate_per_patient_metrics(
+            y_te30.values, prob_te30, thr_p30, p_te30)
+        results["per_patient_persistence_60m"] = calculate_per_patient_metrics(
+            y_te60.values, prob_te60, thr_p60, p_te60)
 
     print(f"  Persistence 30m | "
           f"ROC-AUC={results['persistence_30m'].get('roc_auc', 'N/A'):.3f} | "
@@ -287,6 +322,10 @@ def run_stage(stage: str, max_subjects: int = None):
     results["error_analysis_lgbm_30m"] = error_analysis(
         X_te30, y_te30.values, pred_l30, "lgbm_30m")
 
+    if split_strategy == "held-out":
+        results["per_patient_lgbm_30m"] = calculate_per_patient_metrics(
+            y_te30.values, prob_lgbm_te30, thr_l30, p_te30)
+
     print(f"  LightGBM 30m | "
           f"ROC-AUC={results['lgbm_30m'].get('roc_auc', 'N/A'):.3f} | "
           f"PR-AUC={results['lgbm_30m'].get('pr_auc', 'N/A'):.3f} | "
@@ -307,6 +346,10 @@ def run_stage(stage: str, max_subjects: int = None):
     results["calibration_lgbm_60m"] = compute_calibration(y_te60.values, prob_lgbm_te60)
     results["error_analysis_lgbm_60m"] = error_analysis(
         X_te60, y_te60.values, pred_l60, "lgbm_60m")
+
+    if split_strategy == "held-out":
+        results["per_patient_lgbm_60m"] = calculate_per_patient_metrics(
+            y_te60.values, prob_lgbm_te60, thr_l60, p_te60)
 
     lgbm_time = time.time() - t_lgbm
     results["lgbm_training_seconds"] = round(lgbm_time, 1)
@@ -389,7 +432,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="GlucoTwin Sprint 7 baseline training")
     parser.add_argument("--stage", choices=["smoke", "pilot", "full"], default="smoke",
                         help="Execution stage")
+    parser.add_argument("--split-strategy", choices=["chronological", "held-out"], default="held-out",
+                        help="Split strategy (default: held-out)")
     parser.add_argument("--max-subjects", type=int, default=None,
                         help="Resource cap: max subjects for full stage")
     args = parser.parse_args()
-    run_stage(args.stage, max_subjects=args.max_subjects)
+    run_stage(args.stage, split_strategy=args.split_strategy, max_subjects=args.max_subjects)

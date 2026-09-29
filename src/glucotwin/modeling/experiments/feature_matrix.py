@@ -85,33 +85,63 @@ def build_subject_matrices(
     return train, val, test
 
 
+def build_subject_matrices_heldout(records, subj_id: str) -> Optional[Tuple[pd.DataFrame, pd.DataFrame]]:
+    """
+    Process one subject's records through the pipeline, returning full DFs
+    for 30m and 60m labels without intra-subject splitting.
+    """
+    df = PreprocessingPipeline.process_patient(records)
+    if df.empty or len(df) < 50:
+        return None
+
+    # Drop rows with missing labels (end-of-record boundary)
+    df_30 = df.dropna(subset=[LABEL_30M]).copy()
+    df_60 = df.dropna(subset=[LABEL_60M]).copy()
+
+    if len(df_30) < 30 or len(df_60) < 30:
+        return None
+        
+    df_30['patient_id'] = subj_id
+    df_60['patient_id'] = subj_id
+
+    return df_30, df_60
+
+
+
 def aggregate_splits(
     all_trains: List[pd.DataFrame],
     all_vals: List[pd.DataFrame],
     all_tests: List[pd.DataFrame],
     label_col: str,
-) -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame, pd.Series, pd.DataFrame, pd.Series]:
+) -> Tuple[pd.DataFrame, pd.Series, pd.Series, pd.DataFrame, pd.Series, pd.Series, pd.DataFrame, pd.Series, pd.Series]:
     """
     Concatenate per-subject splits into global matrices.
-    Shuffle train only (within the concatenated block — subjects are already temporally ordered).
+    Returns: (X_tr, y_tr, p_tr, X_val, y_val, p_val, X_te, y_te, p_te)
+    where p_* is the patient_id Series.
     """
-    train = pd.concat(all_trains, ignore_index=True)
-    val = pd.concat(all_vals, ignore_index=True)
-    test = pd.concat(all_tests, ignore_index=True)
+    train = pd.concat(all_trains, ignore_index=True) if all_trains else pd.DataFrame()
+    val = pd.concat(all_vals, ignore_index=True) if all_vals else pd.DataFrame()
+    test = pd.concat(all_tests, ignore_index=True) if all_tests else pd.DataFrame()
 
-    feat_cols = _safe_feature_cols(train)
+    feat_cols = _safe_feature_cols(train) if not train.empty else FEATURE_COLS
 
     def split_xy(df):
+        if df.empty:
+            return pd.DataFrame(columns=feat_cols), pd.Series(dtype=int), pd.Series(dtype=str)
         X = df[feat_cols].fillna(0)
         y = df[label_col].astype(int)
-        return X, y
+        p = df['patient_id'] if 'patient_id' in df.columns else pd.Series(['unknown']*len(df), index=df.index)
+        return X, y, p
 
-    X_tr, y_tr = split_xy(train)
-    X_val, y_val = split_xy(val)
-    X_te, y_te = split_xy(test)
+    X_tr, y_tr, p_tr = split_xy(train)
+    X_val, y_val, p_val = split_xy(val)
+    X_te, y_te, p_te = split_xy(test)
 
-    # Shuffle train rows (different subjects interleaved)
-    idx = np.random.default_rng(42).permutation(len(X_tr))
-    X_tr, y_tr = X_tr.iloc[idx].reset_index(drop=True), y_tr.iloc[idx].reset_index(drop=True)
+    # Shuffle train rows
+    if not X_tr.empty:
+        idx = np.random.default_rng(42).permutation(len(X_tr))
+        X_tr = X_tr.iloc[idx].reset_index(drop=True)
+        y_tr = y_tr.iloc[idx].reset_index(drop=True)
+        p_tr = p_tr.iloc[idx].reset_index(drop=True)
 
-    return X_tr, y_tr, X_val, y_val, X_te, y_te
+    return X_tr, y_tr, p_tr, X_val, y_val, p_val, X_te, y_te, p_te
