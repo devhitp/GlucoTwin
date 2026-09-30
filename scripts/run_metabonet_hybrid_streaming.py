@@ -110,15 +110,28 @@ def process_subject(records, subj_id: str, partition: str, chunks_dir: str):
 
 
 def load_partition_parquet(chunks_dir: str, partition: str, horizon: str) -> pd.DataFrame:
-    """Load all per-subject Parquet files for a given partition and horizon."""
+    """Load all per-subject Parquet files, downcast to float32 to save memory."""
     pattern = f"_{partition}_{horizon}.parquet"
     files = [os.path.join(chunks_dir, f) for f in os.listdir(chunks_dir) if f.endswith(pattern)]
     if not files:
         return pd.DataFrame()
-    parts = [pd.read_parquet(f) for f in files]
-    df = pd.concat(parts, ignore_index=True)
+    
+    parts = []
+    for f in files:
+        df = pd.read_parquet(f)
+        if "patient_id" in df.columns:
+            df = df.drop(columns=["patient_id"])
+        
+        # Downcast floats to float32
+        float_cols = df.select_dtypes(include=['float64']).columns
+        if len(float_cols) > 0:
+            df[float_cols] = df[float_cols].astype(np.float32)
+            
+        parts.append(df)
+        
+    df_full = pd.concat(parts, ignore_index=True)
     del parts
-    return df
+    return df_full
 
 
 def evaluate_models(horizon: str, label_col: str, df_train: pd.DataFrame,
@@ -250,8 +263,20 @@ def main():
     # Model evaluation
     print(f"\n[4] Training & Evaluating models...")
     results = {}
+    
+    # 30m models
     results["30m"] = evaluate_models("30m", LABEL_30M, train_30, val_30, test_30)
+    # Clear 30m train/val to save memory
+    del train_30
+    del val_30
+    gc.collect()
+
+    # 60m models
     results["60m"] = evaluate_models("60m", LABEL_60M, train_60, val_60, test_60)
+    # Clear 60m train/val to save memory
+    del train_60
+    del val_60
+    gc.collect()
 
     # Twin forecast evaluation
     print(f"\n[5] Twin trajectory evaluation...")
