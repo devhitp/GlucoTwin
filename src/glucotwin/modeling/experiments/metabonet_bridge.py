@@ -94,56 +94,36 @@ def iter_subjects_from_parquet(
 
     This avoids loading the entire 154M-row file into memory.
     """
+    import pyarrow.dataset as ds
+    
     cols = REQUIRED_COLS + (OPTIONAL_WEARABLE_COLS if include_wearables else [])
-    pf = pq.ParquetFile(parquet_path)
-    n_rg = pf.num_row_groups
-
-    subject_set = set(subject_ids) if subject_ids is not None else None
-
-    # buffer[subject_id] = list of DataFrames
-    buffer: dict = {}
-
-    for rg_idx in range(n_rg):
-        df_rg = pf.read_row_group(rg_idx, columns=cols).to_pandas()
-
-        if subject_set is not None:
-            df_rg = df_rg[df_rg["id"].astype(str).isin(subject_set)]
-
-        if df_rg.empty:
-            # Free memory and continue
-            del df_rg
-            gc.collect()
+    
+    # Process subjects in batches to avoid OOM
+    batch_size = 50
+    subject_list = subject_ids if subject_ids is not None else []
+    
+    # If no subjects provided, we'd need to find them, but the script always provides them.
+    if not subject_list:
+        return
+        
+    for i in range(0, len(subject_list), batch_size):
+        batch_ids = subject_list[i:i+batch_size]
+        batch_set = set(batch_ids)
+        
+        # Load exactly these subjects using PyArrow dataset filtering
+        dataset = ds.dataset(parquet_path)
+        table = dataset.to_table(columns=cols, filter=ds.field("id").isin(batch_set))
+        df_batch = table.to_pandas()
+        
+        if df_batch.empty:
             continue
-
-        seen_this_rg = set(df_rg["id"].astype(str).unique())
-
-        for subj, group in df_rg.groupby("id"):
+            
+        for subj, group in df_batch.groupby("id"):
             subj = str(subj)
-            if subj not in buffer:
-                buffer[subj] = []
             chunk = group.drop(columns=["id"])
-            buffer[subj].append(chunk)
-
-        del df_rg
-        gc.collect()
-
-        # Yield subjects NOT present in this row group (their data is complete)
-        completed = [s for s in list(buffer.keys()) if s not in seen_this_rg]
-        for subj in completed:
-            chunks = buffer.pop(subj)
-            combined = pd.concat(chunks, ignore_index=True)
-            del chunks
-            records = _canonical_to_synchronized(subj, combined)
-            del combined
+            records = _canonical_to_synchronized(subj, chunk)
             if records:
                 yield subj, records
-
-    # Yield all remaining buffered subjects after final row group
-    for subj, chunks in buffer.items():
-        combined = pd.concat(chunks, ignore_index=True)
-        del chunks
-        records = _canonical_to_synchronized(subj, combined)
-        del combined
-        if records:
-            yield subj, records
-    buffer.clear()
+                
+        del df_batch, table
+        gc.collect()

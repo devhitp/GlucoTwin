@@ -73,30 +73,53 @@ class TwinEngine:
         if horizon_minutes <= 0:
             raise ValueError("Horizon must be positive.")
             
-        forecast_state = copy.deepcopy(self._state)
         predicted_glucose = []
         timestamps = []
         
         step_minutes = 5.0
         steps = int(horizon_minutes / step_minutes)
         
+        # Local scalars for ultra-fast tight loop (replaces deepcopy and dataclasses)
+        curr_g = self._state.glucose
+        curr_ia = self._state.insulin_action
+        curr_ins = self._state.insulin_state
+        curr_meal = self._state.meal_state
+        
+        m_rate = self._params.meal_absorption_rate
+        i_rate = self._params.insulin_clearance_rate
+        base_g = self._params.baseline_glucose
+        d_coeff = self._params.glucose_drift_coeff
+        c_coeff = self._params.carb_conversion_coeff
+        i_sens = self._params.insulin_sensitivity
+        
+        curr_ts = self._state.timestamp
+        dt_td = timedelta(minutes=step_minutes)
+        
         for i in range(1, steps + 1):
-            next_timestamp = self._state.timestamp + timedelta(minutes=i * step_minutes)
+            curr_ts += dt_td
             
-            # Create a dummy missing observation for the forecast step
-            dummy_obs = TwinObservation(
-                timestamp=next_timestamp,
-                glucose=None,
-                bolus=0.0,
-                carbohydrates=0.0,
-                # Basal could technically be assumed to continue, but setting to 0 for simplicity
-                basal=0.0
-            )
+            # Step dynamics mathematically
+            meal_decay = m_rate * curr_meal
+            next_meal = max(0.0, curr_meal - meal_decay)
             
-            forecast_state = TwinDynamics.step(forecast_state, dummy_obs, self._params, dt_minutes=step_minutes)
+            ins_decay = i_rate * curr_ins
+            next_ins = max(0.0, curr_ins - ins_decay)
             
-            timestamps.append(next_timestamp)
-            predicted_glucose.append(forecast_state.glucose)
+            action_decay = i_rate * curr_ia
+            action_input = i_rate * curr_ins
+            next_ia = max(0.0, curr_ia - action_decay + action_input)
+            
+            drift = d_coeff * (base_g - curr_g)
+            meal_effect = c_coeff * meal_decay
+            ins_effect = i_sens * curr_ia
+            
+            curr_g = max(10.0, curr_g + drift + meal_effect - ins_effect)
+            curr_meal = next_meal
+            curr_ins = next_ins
+            curr_ia = next_ia
+            
+            timestamps.append(curr_ts)
+            predicted_glucose.append(curr_g)
             
         return TwinTrajectory(
             start_timestamp=self._state.timestamp,
