@@ -140,45 +140,72 @@ def main():
         else:
             st.success(f"Low risk indicated by Twin trajectory (min {min_60:.1f})")
 
-    # 7. What-If Simulation
+    # 7. Twin-Aware Explainability (V2)
+    st.header("Explainability (V2)")
+    col_e1, col_e2, col_e3 = st.columns(3)
+    with col_e1:
+        st.subheader("Current State")
+        st.metric("Insulin Action", f"{inf_result['twin_state']['insulin_action']:.3f}")
+        st.metric("Meal State", f"{inf_result['twin_state']['meal_state']:.3f}")
+    with col_e2:
+        st.subheader("Twin Projection")
+        st.metric("Trajectory Area", f"{inf_result['twin_features']['twin_traj_area_60m']:.1f}" if inf_result['twin_features']['twin_traj_area_60m'] else "N/A")
+        st.metric("Baseline Deviation", f"{inf_result['twin_features']['twin_baseline_deviation']:.1f}" if inf_result['twin_features']['twin_baseline_deviation'] else "N/A")
+    with col_e3:
+        st.subheader("ML Contribution")
+        st.info("Feature contributions are correlations, not causal proof.")
+        st.write("- Twin Baseline Deviation")
+        st.write("- Trajectory Minimum")
+        st.write("- Insulin Action Trend")
+
+    # 8. What-If Simulation
     st.header("What-If Simulation")
     st.write("Simulate hypothetical scenarios safely. Does NOT constitute medical advice.")
     
-    sim_type = st.selectbox("Scenario Type", ["None", "Meal", "Insulin"])
-    scenario = None
-    
-    if sim_type == "Meal":
-        carbs = st.slider("Hypothetical Carbs (g)", 0.0, 50.0, 15.0, 1.0)
-        offset = st.slider("Offset (minutes into future)", 0, 30, 5, 5)
-        scenario = CounterfactualScenario.meal_perturbation(carbs, float(offset))
-    elif sim_type == "Insulin":
-        bolus = st.slider("Hypothetical Bolus (U)", 0.0, 10.0, 2.0, 0.5)
-        offset = st.slider("Offset (minutes into future)", 0, 30, 5, 5)
-        scenario = CounterfactualScenario.insulin_timing(bolus, float(offset))
+    st.write("Select scenarios to compare against the baseline:")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        run_meal_10 = st.checkbox("+10g Carbs at +5m", value=True)
+    with c2:
+        run_meal_20 = st.checkbox("+20g Carbs at +5m", value=False)
+    with c3:
+        run_ins_1 = st.checkbox("+2U Bolus at +5m", value=False)
         
-    if scenario:
+    scenarios = []
+    if run_meal_10:
+        scenarios.append(CounterfactualScenario.meal_perturbation(10.0, 5.0))
+    if run_meal_20:
+        scenarios.append(CounterfactualScenario.meal_perturbation(20.0, 5.0))
+    if run_ins_1:
+        scenarios.append(CounterfactualScenario.insulin_timing(2.0, 5.0))
+        
+    if scenarios:
         with st.spinner("Simulating..."):
-            sim_res = run_whatif_simulation(records, scenario)
+            fig_sim, ax_sim = plt.subplots(figsize=(10, 4))
             
-        fig_sim, ax_sim = plt.subplots(figsize=(10, 4))
-        
-        bl_t = [last_t + timedelta(minutes=off) for off, _ in sim_res['baseline']]
-        bl_g = [g for _, g in sim_res['baseline']]
-        cf_g = [g for _, g in sim_res['counterfactual']]
-        
-        ax_sim.plot(bl_t, bl_g, 'k--', label="Baseline")
-        ax_sim.plot(bl_t, cf_g, 'b-', label=sim_res['scenario'])
-        
-        ax_sim.axhspan(40, 70, color='red', alpha=0.1)
-        ax_sim.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-        plt.xticks(rotation=45)
-        ax_sim.set_ylabel("Glucose")
-        ax_sim.set_xlabel("Time")
-        ax_sim.legend(loc="upper left")
-        ax_sim.grid(True, alpha=0.3)
-        
-        st.pyplot(fig_sim)
-        st.caption(sim_res['disclaimer'])
+            # Baseline (compute once)
+            sim_res = run_whatif_simulation(records, scenarios[0])
+            bl_t = [last_t + timedelta(minutes=off) for off, _ in sim_res['baseline']]
+            bl_g = [g for _, g in sim_res['baseline']]
+            ax_sim.plot(bl_t, bl_g, 'k--', label="Baseline")
+            
+            # Counterfactuals
+            colors = ['b', 'g', 'm', 'c']
+            for i, scenario in enumerate(scenarios):
+                res = run_whatif_simulation(records, scenario)
+                cf_g = [g for _, g in res['counterfactual']]
+                ax_sim.plot(bl_t, cf_g, color=colors[i % len(colors)], label=res['scenario'])
+            
+            ax_sim.axhspan(40, 70, color='red', alpha=0.1)
+            ax_sim.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+            plt.xticks(rotation=45)
+            ax_sim.set_ylabel("Glucose")
+            ax_sim.set_xlabel("Time")
+            ax_sim.legend(loc="upper left")
+            ax_sim.grid(True, alpha=0.3)
+            
+            st.pyplot(fig_sim)
+            st.caption("Simulation only — not a treatment recommendation.")
 
 
 if __name__ == "__main__":

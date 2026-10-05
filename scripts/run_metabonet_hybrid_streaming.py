@@ -30,8 +30,8 @@ from src.glucotwin.modeling.experiments.metabonet_bridge import iter_subjects_fr
 from src.glucotwin.modeling.experiments.feature_matrix import (
     build_subject_matrices_heldout, LABEL_30M, LABEL_60M, FEATURE_COLS
 )
-from src.glucotwin.hybrid.causal_feature_extractor import extract_causal_twin_features
-from src.glucotwin.hybrid.model import HybridModel, ModelConfig, BASELINE_FEATURE_COLS, TWIN_FEATURE_COLS
+from src.glucotwin.hybrid.causal_feature_extractor import extract_causal_twin_features_fast
+from src.glucotwin.hybrid.model import HybridModel, ModelConfig, BASELINE_FEATURE_COLS, TWIN_FEATURE_COLS, TWIN_V2_FEATURE_COLS
 from src.glucotwin.hybrid.calibration import select_calibrator
 from src.glucotwin.hybrid.twin_eval import evaluate_twin_forecast
 from sklearn.metrics import roc_auc_score, average_precision_score, f1_score, recall_score, precision_score
@@ -49,12 +49,12 @@ STAGE_LIMITS = {
 # Minimal columns to persist — only those required for LightGBM fit and twin evaluation
 SAVE_COLS_30 = sorted(set(
     [c for c in FEATURE_COLS] +
-    TWIN_FEATURE_COLS +
+    TWIN_FEATURE_COLS + TWIN_V2_FEATURE_COLS +
     [LABEL_30M, "patient_id", "glucose_current", "twin_glucose_t30"]
 ))
 SAVE_COLS_60 = sorted(set(
     [c for c in FEATURE_COLS] +
-    TWIN_FEATURE_COLS +
+    TWIN_FEATURE_COLS + TWIN_V2_FEATURE_COLS +
     [LABEL_60M, "patient_id", "glucose_current", "twin_glucose_t60"]
 ))
 
@@ -62,6 +62,16 @@ SAVE_COLS_60 = sorted(set(
 def merge_twin_features(df_baseline: pd.DataFrame, df_twin: pd.DataFrame) -> pd.DataFrame:
     if df_twin.empty:
         return df_baseline
+        
+    # Check if we can fast-path using direct numpy assignment
+    if len(df_baseline) == len(df_twin) and "timestamp" in df_twin.columns:
+        b_ts = df_baseline.index if df_baseline.index.name == "timestamp" or np.issubdtype(df_baseline.index.dtype, np.datetime64) else df_baseline.get("timestamp")
+        if b_ts is not None and (b_ts.values == df_twin["timestamp"].values).all():
+            for col in df_twin.columns:
+                if col != "timestamp":
+                    df_baseline[col] = df_twin[col].values
+            return df_baseline
+
     df_b = df_baseline.copy()
     if "timestamp" not in df_b.columns:
         if df_b.index.name == "timestamp":
@@ -97,7 +107,7 @@ def process_subject(records, subj_id: str, partition: str, chunks_dir: str):
     if not df_60.empty:
         target_timestamps.update(df_60.index)
 
-    df_twin = extract_causal_twin_features(records, target_timestamps)
+    df_twin = extract_causal_twin_features_fast(records, target_timestamps)
 
     df_30_full = _align_and_trim(merge_twin_features(df_30, df_twin), SAVE_COLS_30)
     df_60_full = _align_and_trim(merge_twin_features(df_60, df_twin), SAVE_COLS_60)
@@ -142,7 +152,37 @@ def evaluate_models(horizon: str, label_col: str, df_train: pd.DataFrame,
         return {}
 
     results = {}
-    for config in [ModelConfig.BASELINE, ModelConfig.TWIN_ONLY, ModelConfig.HYBRID]:
+
+    # 1. Persistence Baseline
+    y_te_pers = df_test[label_col].fillna(0).astype(int).values
+    if "glucose_current" in df_test.columns and len(np.unique(y_te_pers)) >= 2:
+        # Persistence predicts positive if current glucose is < 70
+        probs_pers = (df_test["glucose_current"] < 70).astype(float).values
+        y_pred_pers = (probs_pers >= 0.5).astype(int)
+        bs_pers = float(np.mean((probs_pers - y_te_pers) ** 2))
+        
+        results["persistence"] = {
+            "roc_auc": round(roc_auc_score(y_te_pers, probs_pers), 4),
+            "pr_auc": round(average_precision_score(y_te_pers, probs_pers), 4),
+            "recall": round(recall_score(y_te_pers, y_pred_pers, zero_division=0), 4),
+            "precision": round(precision_score(y_te_pers, y_pred_pers, zero_division=0), 4),
+            "f1": round(f1_score(y_te_pers, y_pred_pers, zero_division=0), 4),
+            "brier_raw": round(bs_pers, 4),
+            "brier_cal": "NA",
+            "n_test": int(len(y_te_pers)),
+            "n_pos": int(y_te_pers.sum()),
+        }
+        r = results["persistence"]
+        print(f"  persistence  ROC={r['roc_auc']}  PR={r['pr_auc']}  "
+              f"F1={r['f1']}  Recall={r['recall']}")
+
+    configs = [
+        ModelConfig.BASELINE, 
+        ModelConfig.TWIN_ONLY, 
+        ModelConfig.HYBRID,
+        ModelConfig.V2_DYNAMIC_HYBRID
+    ]
+    for config in configs:
         try:
             model = HybridModel(config, random_state=SEED)
             model.fit(df_train, label_col, df_val=df_val if not df_val.empty else None)
@@ -179,7 +219,9 @@ def evaluate_models(horizon: str, label_col: str, df_train: pd.DataFrame,
                 "n_pos": int(y_te.sum()),
             }
             r = results[config.value]
-            print(f"  {config.value:12s} ROC={r['roc_auc']}  PR={r['pr_auc']}  "
+            # Ensure proper formatting for alignment
+            conf_str = config.value[:17].ljust(17)
+            print(f"  {conf_str} ROC={r['roc_auc']}  PR={r['pr_auc']}  "
                   f"F1={r['f1']}  Recall={r['recall']}")
 
         except Exception as e:

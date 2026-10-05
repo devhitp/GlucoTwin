@@ -20,6 +20,14 @@ class TwinEngine:
     @property
     def current_state(self) -> TwinState:
         return self._state
+
+    @property
+    def params(self) -> TwinParameters:
+        return self._params
+
+    @params.setter
+    def params(self, new_params: TwinParameters):
+        self._params = new_params
         
     def update(self, obs: TwinObservation) -> TwinState:
         """

@@ -23,6 +23,7 @@ class ModelConfig(str, Enum):
     BASELINE = "baseline"
     TWIN_ONLY = "twin_only"
     HYBRID = "hybrid"
+    V2_DYNAMIC_HYBRID = "v2_dynamic_hybrid"
 
 
 # Baseline feature columns that existed before Sprint 9
@@ -66,6 +67,15 @@ TWIN_FEATURE_COLS = [
     "twin_uncertainty_calibrated",
 ]
 
+TWIN_V2_FEATURE_COLS = [
+    "twin_proj_min_60m",
+    "twin_proj_max_60m",
+    "twin_traj_area_60m",
+    "twin_baseline_deviation",
+    "twin_interaction_ia_trend",
+    "twin_interaction_meal_trend",
+]
+
 
 def _select_cols(df: pd.DataFrame, cols: List[str]) -> pd.DataFrame:
     """Select only columns that exist in the dataframe."""
@@ -104,8 +114,11 @@ class HybridModel:
             return [c for c in BASELINE_FEATURE_COLS if c in df.columns]
         elif self.config == ModelConfig.TWIN_ONLY:
             return [c for c in TWIN_FEATURE_COLS if c in df.columns]
-        else:  # HYBRID
+        elif self.config == ModelConfig.HYBRID:
             all_cols = BASELINE_FEATURE_COLS + TWIN_FEATURE_COLS
+            return [c for c in all_cols if c in df.columns]
+        else:  # V2_DYNAMIC_HYBRID
+            all_cols = BASELINE_FEATURE_COLS + TWIN_FEATURE_COLS + TWIN_V2_FEATURE_COLS
             return [c for c in all_cols if c in df.columns]
 
     def fit(
